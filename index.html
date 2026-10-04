@@ -5,36 +5,48 @@
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<title>My Transactions</title>
+<title>My Transactions · Personal Finance</title>
 <style>
-:root{--bg:#f6f7f9;--c:#fff;--t:#1b1f24;--m:#6b7280;--l:#e5e7eb;--a:#2563eb;--g:#15803d;--r:#dc2626}
-@media(prefers-color-scheme:dark){:root{--bg:#111418;--c:#1b2026;--t:#eef0f3;--m:#98a1ad;--l:#2c333b;--a:#60a5fa;--g:#4ade80;--r:#f87171}}
+:root{--bg:#f4f7fb;--c:#fff;--t:#172033;--m:#667085;--l:#e4e9f0;--a:#2563eb;--a2:#7c3aed;--g:#15803d;--r:#dc2626;--shadow:0 8px 28px rgba(16,24,40,.07);--soft:#f8fafc}
+@media(prefers-color-scheme:dark){:root{--bg:#0b1017;--c:#141b24;--t:#eef2f7;--m:#9aa6b2;--l:#293342;--a:#60a5fa;--a2:#a78bfa;--g:#4ade80;--r:#f87171;--shadow:0 10px 30px rgba(0,0,0,.25);--soft:#101722}}
+html[data-theme="light"]{--bg:#f4f7fb;--c:#fff;--t:#172033;--m:#667085;--l:#e4e9f0;--a:#2563eb;--a2:#7c3aed;--g:#15803d;--r:#dc2626;--shadow:0 8px 28px rgba(16,24,40,.07);--soft:#f8fafc}
+html[data-theme="dark"]{--bg:#0b1017;--c:#141b24;--t:#eef2f7;--m:#9aa6b2;--l:#293342;--a:#60a5fa;--a2:#a78bfa;--g:#4ade80;--r:#f87171;--shadow:0 10px 30px rgba(0,0,0,.25);--soft:#101722}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--t);font:16px system-ui,-apple-system,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
-main{max-width:720px;margin:auto;padding:14px}
-header{display:flex;gap:8px;align-items:center;margin-bottom:10px}
-h1{font-size:19px;margin:0;flex:1}
-button,select,input{font:inherit;padding:10px;border:1px solid var(--l);border-radius:10px;background:var(--c);color:var(--t);max-width:100%}
-button{cursor:pointer}.p{background:var(--a);color:#fff;border:0}
-.s{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
-.s div,.card{background:var(--c);border:1px solid var(--l);border-radius:12px;padding:10px}
-.s small{display:block;color:var(--m);font-size:12px}.s b{font-size:17px}
-.card{margin-bottom:10px}.top{display:flex;justify-content:space-between;gap:8px}
+body{margin:0;background:radial-gradient(circle at 10% -10%,rgba(37,99,235,.10),transparent 32%),var(--bg);color:var(--t);font:15px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);min-height:100vh}
+button,select,input{transition:border-color .15s,box-shadow .15s,transform .08s}
+button:hover{transform:translateY(-1px)}button:active{transform:translateY(0)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+
+main{max-width:860px;margin:auto;padding:16px 14px 32px}
+header{position:sticky;top:0;z-index:20;display:flex;gap:8px;align-items:center;margin:-16px -14px 14px;padding:14px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid color-mix(in srgb,var(--l) 75%,transparent)}
+.brand{display:flex;align-items:center;gap:9px;min-width:0}.brandIcon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;box-shadow:0 5px 15px rgba(37,99,235,.22)}
+h1{font-size:18px;margin:0;line-height:1.15}.sub{font-size:11px;color:var(--m);margin-top:2px}
+button,select,input{font:inherit;padding:10px 11px;border:1px solid var(--l);border-radius:11px;background:var(--c);color:var(--t);max-width:100%;box-shadow:0 1px 2px rgba(16,24,40,.02)}
+button{cursor:pointer}.p{background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;border:0;box-shadow:0 6px 16px rgba(37,99,235,.18)}.ghost{background:var(--soft)}
+.s{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:11px}
+.s div,.card{background:var(--c);border:1px solid var(--l);border-radius:14px;padding:12px;box-shadow:var(--shadow)}
+.s small{display:block;color:var(--m);font-size:11px;text-transform:uppercase;letter-spacing:.04em}.s b{font-size:17px;display:block;margin-top:2px}
+.card{margin-bottom:11px}.top{display:flex;justify-content:space-between;gap:10px}.toolbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}.toolbar>*{flex:1 1 170px}.mini{font-size:12px;color:var(--m)}.statAccent{color:var(--a)}
 .top small{color:var(--m)}.cr{color:var(--g)}.db{color:var(--r)}
 .r{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.r select,.r input{flex:1 1 100%}
 .tog{display:flex;gap:6px;flex:1 1 100%}.tog button{flex:1}.tog button.on{background:var(--a);color:#fff;border-color:var(--a)}
-#msg{color:var(--m);font-size:14px;margin-bottom:8px;min-height:18px}
+#msg{color:var(--m);font-size:13px;margin:0 2px 8px;min-height:18px}.status{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:999px;background:var(--soft);font-size:11px;color:var(--m);white-space:nowrap}.dot{width:7px;height:7px;border-radius:50%;background:var(--g)}
 #setup input{width:100%;margin:8px 0}
-.bar{padding:6px;cursor:pointer;border-radius:8px}.bl{display:flex;justify-content:space-between;font-size:14px;gap:8px}
+.bar{padding:8px;cursor:pointer;border-radius:10px}.bar:hover{background:var(--soft)}.bl{display:flex;justify-content:space-between;font-size:14px;gap:8px}
 .bar i{display:block;height:8px;border-radius:4px;background:var(--r);margin-top:4px}
 .bar.cr i{background:var(--g)}.bar.all i{background:var(--a)}.bar.sel{outline:2px solid var(--a)}
-.hint{color:var(--m);font-size:12px;margin-top:6px}
+.hint{color:var(--m);font-size:12px;margin-top:6px}.empty{padding:20px;text-align:center;color:var(--m)}.search{position:relative}.search input{width:100%;padding-left:34px}.search span{position:absolute;left:11px;top:9px;color:var(--m)}.chip{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;background:var(--soft);font-size:11px;color:var(--m)}
 [hidden]{display:none!important}
 .card.off .top{opacity:.6}.off .amt{text-decoration:line-through}
+@media(max-width:620px){main{padding:12px 10px 28px}header{margin:-12px -10px 12px;padding:11px 10px}.brandIcon{width:34px;height:34px}.status{display:none}.s{grid-template-columns:repeat(2,1fr)}.toolbar>*{flex-basis:100%}.r select,.r input{min-width:0}.card{padding:11px}}
+@media(min-width:621px){.s{grid-template-columns:repeat(6,1fr)}.s div:nth-child(1),.s div:nth-child(2),.s div:nth-child(3){grid-column:span 2}.s div:nth-child(4),.s div:nth-child(5),.s div:nth-child(6){grid-column:span 2}}
 </style></head><body><main>
-<header><h1>💰 My Transactions</h1>
-<select id="flt"><option value="all">All</option><option value="un">To categorize</option></select>
-<button id="cfg" title="Settings">⚙</button></header>
+<header>
+  <div class="brand"><div class="brandIcon">₹</div><div><h1>My Transactions</h1><div class="sub">Personal cash-flow dashboard</div></div></div>
+  <span class="status"><span class="dot"></span><span id="syncState">Ready</span></span>
+  <button id="theme" class="ghost" title="Toggle theme" aria-label="Toggle theme">☾</button>
+  <button id="cfg" class="ghost" title="Settings" aria-label="Settings">⚙</button>
+</header>
 <div id="msg"></div>
 
 <div id="setup" class="card" hidden>
@@ -45,22 +57,32 @@ button{cursor:pointer}.p{background:var(--a);color:#fff;border:0}
 </div>
 
 <div id="app" hidden>
-<button class="p" id="sy" style="width:100%;margin-bottom:8px">Sync from Gmail</button>
-<div class="r" style="margin:0 0 10px"><button id="addb" style="flex:1 1 40%">＋ Add manually</button><button id="csv" style="flex:1 1 40%">⬇ Export CSV</button></div>
+<button class="p" id="sy" style="width:100%;margin-bottom:8px">↻ Sync from Gmail</button>
+<div class="r" style="margin:0 0 10px"><button id="addb" style="flex:1 1 30%">＋ Add manually</button><button id="csv" style="flex:1 1 30%">⬇ Export CSV</button><button id="clearF" class="ghost" style="flex:1 1 30%">Clear filters</button></div>
 <div id="addf" class="card" hidden><div class="r" style="margin:0">
 <div class="tog"><button id="k1" class="on">Debit</button><button id="k2">Credit</button></div>
 <input id="ma" type="number" inputmode="decimal" placeholder="Amount ₹"><input id="mv" placeholder="Vendor / what for">
 <select id="mc"></select><input id="md" type="date">
 <div class="tog"><button id="n1">Need</button><button id="n2">Want</button></div>
 <input id="mn" placeholder="Comment"><button class="p" id="msv" style="flex:1 1 100%">Save</button></div></div>
+<div class="toolbar">
+<div class="search"><span>⌕</span><input id="search" placeholder="Search merchant, comment or email…" autocomplete="off"></div>
+<select id="flt"><option value="all">All transactions</option><option value="un">To categorize</option></select>
+</div>
 <div class="r" style="margin:0 0 10px"><select id="per" style="flex:1 1 45%">
 <option value="last10" selected>Last 10 transactions</option><option value="m0">This month</option><option value="m1">Last month</option><option value="d30">Past 1 month</option>
 <option value="d90">Past 3 months</option><option value="all">All time</option><option value="cus">Between dates…</option></select>
 <select id="typ" style="flex:1 1 45%"><option value="debit">Debited</option><option value="credit">Credited</option><option value="all">Both</option></select></div>
 <div id="cr" class="r" style="margin:0 0 10px" hidden><input type="date" id="df" style="flex:1 1 45%"><input type="date" id="dt2" style="flex:1 1 45%"></div>
-<div class="s"><div><small>Debited</small><b id="s1" class="db"></b></div><div><small>Credited</small><b id="s5" class="cr"></b></div>
-<div><small>Needs</small><b id="s2"></b></div><div><small>Wants</small><b id="s3"></b></div>
-<div><small>To categorize (all time)</small><b id="s4"></b></div></div>
+<div class="s">
+<div><small>Debited</small><b id="s1" class="db"></b></div>
+<div><small>Credited</small><b id="s5" class="cr"></b></div>
+<div><small>Net cash flow</small><b id="s6" class="statAccent"></b></div>
+<div><small>Needs</small><b id="s2"></b></div>
+<div><small>Wants</small><b id="s3"></b></div>
+<div><small>Transactions</small><b id="s7"></b></div>
+</div>
+<div class="r" style="margin:-3px 0 10px"><span class="chip">Uncategorized: <b id="s4" style="margin-left:4px"></b></span><span class="chip">Selected period: <b id="periodLabel" style="margin-left:4px"></b></span></div>
 <div class="card"><b>By category</b><div id="B"></div><div class="hint">Tap a category to see only its transactions.</div></div>
 <div id="ins"></div>
 <div class="card"><b>Spending split</b><div id="DN" style="display:flex;flex-direction:column;align-items:center;margin-top:6px"></div></div>
@@ -78,10 +100,12 @@ const SCOPE="https://www.googleapis.com/auth/gmail.readonly",DAYS=190;
 const CATS=["Shopping","Food & Dining","Groceries","Self Cash","Transport","Bills & Utilities","Rent / EMI","Health","Entertainment","Subscriptions","Travel","Investments","Transfers","Income","Other"];
 const $=i=>document.getElementById(i);
 const LS={g:(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}},s:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-let tx=LS.g("ft_tx",[]).filter(t=>Number.isFinite(t.amount)),seen=new Set(LS.g("ft_seen",[])),cid=LS.g("ft_cid",""),token=null;
+let tx=LS.g("ft_tx",[]).map(t=>({...t,amount:Number(t.amount)})).filter(t=>Number.isFinite(t.amount)&&t.amount>0),
+seen=new Set(LS.g("ft_seen",[])),cid=LS.g("ft_cid",""),token=null;
 const msg=t=>$("msg").textContent=t;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const inr=n=>"₹"+n.toLocaleString("en-IN",{maximumFractionDigits:2});
+const inr=n=>{n=Number(n);return "₹"+(Number.isFinite(n)?n:0).toLocaleString("en-IN",{maximumFractionDigits:2})};
+const num=n=>{n=Number(n);return Number.isFinite(n)?n:0};
 const save=()=>{LS.s("ft_tx",tx);LS.s("ft_seen",[...seen])};
 
 /* ---------- email parsing ---------- */
@@ -121,11 +145,16 @@ function parse(m){
   const H=n=>((m.payload.headers||[]).find(h=>h.name.toLowerCase()==n)||{}).value||"";
   const subject=H("subject");if(/\botp\b/i.test(subject))return null;
   const text=bodyText(m.payload).join(" ").replace(/\s+/g," "),full=subject+" "+text;
-  const a=full.match(AMT);if(!a||!KEYS.test(full))return null;
-  const amt=parseFloat(a[1].replace(/,/g,""));if(!(amt>0))return null;
+  if(!KEYS.test(full))return null;
+  const matches=[...full.matchAll(/(?:\bRs\.?|\bINR|₹)\s*(\d[\d,]*(?:\.\d{1,2})?)/gi)];
+  if(!matches.length)return null;
+  const keyPos=full.search(KEYS), candidates=matches.map(x=>({raw:x[1],pos:x.index})).filter(x=>Number(x.raw.replace(/,/g,""))>0);
+  if(!candidates.length)return null;
+  const near=candidates.sort((a,b)=>Math.abs(a.pos-keyPos)-Math.abs(b.pos-keyPos))[0];
+  const amt=num(near.raw.replace(/,/g,""));if(!(amt>0))return null;
   return {ts:new Date(+m.internalDate).toLocaleString("sv-SE").slice(0,16),vendor:findVendor(full,H("from")),
     amount:amt,kind:CREDIT.test(full)&&!DEBIT.test(full)?"credit":"debit",
-    subject:subject.slice(0,120),snip:full.slice(Math.max(0,full.search(AMT)-60),full.search(AMT)+180)}}
+    subject:subject.slice(0,120),snip:full.slice(Math.max(0,near.pos-70),near.pos+190)}}
 
 /* ---------- Gmail sync ---------- */
 const signin=()=>new Promise((res,rej)=>{
@@ -136,7 +165,7 @@ async function api(p){const r=await fetch("https://gmail.googleapis.com/gmail/v1
   if(!r.ok)throw new Error("Gmail error "+r.status);return r.json()}
 async function sync(){
   try{
-    msg("Signing in…");token=await signin();
+    msg("Signing in…");setState("Connecting");token=await signin();
     const q=encodeURIComponent(`in:inbox newer_than:${DAYS}d (debited OR spent OR paid OR payment OR purchase OR withdrawn OR credited OR UPI OR transaction)`);
     let ids=[],pt="";
     do{const r=await api(`messages?q=${q}&maxResults=100`+(pt?`&pageToken=${pt}`:""));
@@ -148,9 +177,9 @@ async function sync(){
         if(t){const k=tx.find(x=>x.vendor==t.vendor&&x.category);
           t.uid=id;t.category=k?k.category:t.vendor=="ATM Cash Withdrawal"?"Self Cash":t.kind=="credit"?"Income":"";
           t.need_want="";t.comment="";tx.push(t);n++}}));
-      msg(`Reading ${Math.min(i+10,todo.length)} of ${todo.length}…`)}
-    save();msg(`Done: ${n} new transaction(s).`);draw()
-  }catch(e){msg("Error: "+(e.message||e))}}
+      msg(`Reading ${Math.min(i+10,todo.length)} of ${todo.length}…`);setState(`Reading ${Math.min(i+10,todo.length)}/${todo.length}`)}
+    save();msg(`Done: ${n} new transaction(s).`);setState("Synced");draw()
+  }catch(e){setState("Error");msg("Error: "+(e.message||e))}}
 
 /* ---------- UI ---------- */
 function ren(uid){const t=tx.find(x=>x.uid==uid),n=prompt("Merchant name:",t.vendor);if(n==null||!n.trim())return;
@@ -167,19 +196,19 @@ function inPeriod(t){let v=$("per").value;if(v=="last10")v="d30";const n=new Dat
   if(v=="m1"){const p=new Date(n.getFullYear(),n.getMonth()-1,1);return d.getFullYear()==p.getFullYear()&&d.getMonth()==p.getMonth()}
   return d>=new Date(n-(v=="d30"?30:90)*864e5)}
 function draw(){
-  const sum=a=>a.reduce((x,t)=>x+(t.skip?0:t.amount),0),P=tx.filter(inPeriod),typ=$("typ").value;
+  const sum=a=>a.reduce((x,t)=>x+(t.skip?0:num(t.amount)),0),P=tx.filter(inPeriod),typ=$("typ").value;
   const d=P.filter(t=>t.kind=="debit"),c=P.filter(t=>t.kind=="credit");
-  $("s1").textContent=inr(sum(d));$("s5").textContent=inr(sum(c));
+  $("s1").textContent=inr(sum(d));$("s5").textContent=inr(sum(c));$("s6").textContent=inr(sum(c)-sum(d));$("s7").textContent=P.length;
   $("s2").textContent=inr(sum(d.filter(t=>t.need_want=="Need")));$("s3").textContent=inr(sum(d.filter(t=>t.need_want=="Want")));
   $("s4").textContent=tx.filter(t=>!t.category).length;
   const T=P.filter(t=>typ=="all"||t.kind==typ),by={};
-  T.forEach(t=>{if(t.skip)return;const k=t.category||"Uncategorized";by[k]=(by[k]||0)+t.amount});
+  T.forEach(t=>{if(t.skip)return;const k=t.category||"Uncategorized";by[k]=(by[k]||0)+num(t.amount)});
   const tot=sum(T),max=Math.max(0,...Object.values(by)),cls=typ=="credit"?"cr":typ=="all"?"all":"";
   $("B").innerHTML=Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="bar ${cls}${k==catF?" sel":""}" data-k="${esc(k)}">
-<div class="bl"><span>${esc(k)}</span><b>${inr(v)} · ${Math.round(v/tot*100)}%</b></div><i style="width:${v/max*100}%"></i></div>`).join("")
+<div class="bl"><span>${esc(k)}</span><b>${inr(v)} · ${tot?Math.round(v/tot*100):0}%</b></div><i style="width:${v/max*100}%"></i></div>`).join("")
     ||"<p style='color:var(--m)'>No transactions in this period.</p>";
   const un=$("flt").value=="un";
-  $("L").innerHTML=[...($("per").value=="last10"?tx.filter(t=>typ=="all"||t.kind==typ):T)].sort((a,b)=>b.ts.localeCompare(a.ts)).filter(t=>(!un||!t.category)&&(!catF||(t.category||"Uncategorized")==catF)&&(!dayF||t.ts.startsWith(dayF))).slice(0,$("per").value=="last10"?10:99999).map(t=>`
+  $("L").innerHTML=[...($("per").value=="last10"?tx.filter(t=>typ=="all"||t.kind==typ):T)].sort((a,b)=>b.ts.localeCompare(a.ts)).filter(t=>{const q=($("search")?.value||"").trim().toLowerCase();return (!un||!t.category)&&(!catF||(t.category||"Uncategorized")==catF)&&(!dayF||t.ts.startsWith(dayF))&&(!q||[t.vendor,t.comment,t.subject,t.category].some(v=>String(v||"").toLowerCase().includes(q)))}).slice(0,$("per").value=="last10"?10:99999).map(t=>`
 <div class="card${t.skip?" off":""}"><div class="top"><div><b style="cursor:pointer" onclick="ren('${t.uid}')" title="Tap to edit">${esc(t.vendor)} ✎</b><br><small>${esc(t.ts)}</small>${t.snip?`<details><summary class="hint">Email details</summary><div class="hint">${esc(t.subject)}<br>${esc(t.snip)}</div></details>`:""}</div>
 <b class="${t.kind=="credit"?"cr":"db"} amt">${t.kind=="credit"?"+":"−"}${inr(t.amount)}</b></div>
 <div class="r"><select onchange="upd('${t.uid}',{category:this.value})"><option value="">Category…</option>
@@ -204,12 +233,14 @@ let dayF="",calO=0,mk="debit",mnw="";
 const ym=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
 const _draw=draw;draw=()=>{_draw();extras();lh()};
 function lh(){const v=$("per").value;$("cr").hidden=v!="cus";
+  const labels={last10:"Latest 10",m0:"This month",m1:"Last month",d30:"Past 1 month",d90:"Past 3 months",all:"All time",cus:"Custom range"};
+  $("periodLabel").textContent=labels[v]||v;
   $("LH").textContent=v=="last10"?"Latest 10 transactions · pick a period above to see more":"All transactions for the selected period"}
 $("flt").onchange=$("per").onchange=$("typ").onchange=$("df").onchange=$("dt2").onchange=draw;
 function extras(){
-  const sum=a=>a.reduce((x,t)=>x+(t.skip?0:t.amount),0),now=new Date(),deb=tx.filter(t=>t.kind=="debit"&&!t.skip);
+  const sum=a=>a.reduce((x,t)=>x+(t.skip?0:num(t.amount)),0),now=new Date(),deb=tx.filter(t=>t.kind=="debit"&&!t.skip);
   const cur=deb.filter(t=>t.ts.startsWith(ym(now))),sp={};
-  cur.forEach(t=>{if(t.skip)return;const k=t.category||"Uncategorized";sp[k]=(sp[k]||0)+t.amount});
+  cur.forEach(t=>{if(t.skip)return;const k=t.category||"Uncategorized";sp[k]=(sp[k]||0)+num(t.amount)});
   const bk=Object.keys(BUD).filter(k=>BUD[k]>0),over=bk.filter(k=>(sp[k]||0)>BUD[k]);
   const prev=deb.filter(t=>t.ts.startsWith(ym(new Date(now.getFullYear(),now.getMonth()-1,1))));
   const top=Object.entries(sp).sort((a,b)=>b[1]-a[1])[0],diff=sum(prev)?Math.round((sum(cur)-sum(prev))/sum(prev)*100):null;
@@ -221,7 +252,7 @@ function extras(){
     $("BS").innerHTML=CATS.filter(c=>c!="Income").map(c=>`<div class="bl" style="margin:6px 0;align-items:center"><span>${esc(c)}</span><input type="number" inputmode="decimal" value="${BUD[c]||""}" placeholder="₹ limit" style="width:120px" data-c="${esc(c)}"></div>`).join("");
   /* donut for selected period + type */
   const typ=$("typ").value,P=tx.filter(inPeriod).filter(t=>typ=="all"||t.kind==typ),by={};
-  P.forEach(t=>{if(t.skip)return;const k=t.category||"Uncategorized";by[k]=(by[k]||0)+t.amount});
+  P.forEach(t=>{if(t.skip)return;const k=t.category||"Uncategorized";by[k]=(by[k]||0)+num(t.amount)});
   const ent=Object.entries(by).sort((a,b)=>b[1]-a[1]),tot=sum(P);let off=0;
   $("DN").innerHTML=tot?`<svg viewBox="0 0 42 42" width="220" height="220"><circle cx="21" cy="21" r="15.9155" fill="none" stroke="var(--l)" stroke-width="6"/>${ent.map(([k,v],i)=>{const p=v/tot*100,s=`<circle cx="21" cy="21" r="15.9155" fill="none" stroke="${PAL[i%10]}" stroke-width="6" stroke-dasharray="${p} ${100-p}" stroke-dashoffset="${25-off}"/>`;off+=p;return s}).join("")}<text x="21" y="22.2" text-anchor="middle" font-size="4" fill="currentColor">${inr(tot)}</text></svg>
 <div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;margin-top:6px">${ent.slice(0,10).map(([k],i)=>`<span><span style="color:${PAL[i%10]}">●</span> ${esc(k)}</span>`).join("")}</div>`:"<p class='hint'>No data for this period.</p>";
@@ -256,5 +287,24 @@ $("csv").onclick=()=>{const q=s=>'"'+String(s).replace(/"/g,'""')+'"',
   rows=[["Date","Vendor","Type","Amount","Category","Need/Want","Comment","Counted"],...tx.filter(inPeriod).map(t=>[t.ts,t.vendor,t.kind,t.amount,t.category,t.need_want,t.comment,t.skip?"No":"Yes"])],
   a=document.createElement("a");a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(q).join(",")).join("\n")],{type:"text/csv"}));
   a.download="transactions.csv";a.click()};
+
+/* ---------- polish ---------- */
+const themeKey="ft_theme";
+const savedTheme=LS.g(themeKey,"");
+if(savedTheme) document.documentElement.dataset.theme=savedTheme;
+$("theme").onclick=()=>{
+  const next=document.documentElement.dataset.theme=="dark"?"light":"dark";
+  document.documentElement.dataset.theme=next;LS.s(themeKey,next);
+  $("theme").textContent=next=="dark"?"☀":"☾";
+};
+$("theme").textContent=document.documentElement.dataset.theme=="dark"?"☀":"☾";
+$("search").oninput=draw;
+$("clearF").onclick=()=>{
+  $("flt").value="all";$("per").value="last10";$("typ").value="debit";
+  $("df").value="";$("dt2").value="";$("search").value="";catF="";dayF="";calO=0;draw();msg("Filters cleared.");
+};
+const oldMsg=msg;
+const setState=(s)=>{if($("syncState"))$("syncState").textContent=s};
+
 show();
 </script></body></html>
