@@ -142,6 +142,7 @@ const CREDIT=/credited|refund|received/i, DEBIT=/debited|spent|paid|purchase|wit
 const VEND=/\b(?:at|to|towards|merchant)\s+(?:VPA\s+)?([A-Za-z0-9][A-Za-z0-9&.'@\-_ ]{1,35}?)(?=\s+(?:on|via|using|with|Ref|UPI|for|has|is)\b|[.,]|$)/gi;
 const BAD=/^(your|a\/c|account|the|you|bank|card|xx)/i;
 const BAD2=/^(vpa|your|you|account|a\/c|the|bank|card|xx|rs|inr|help|know|view|check|avoid|contact|call|block|report|download|visit|click|login|update|customer|get|see|track|manage|pay|learn|stay|safe|secure|share|never|please|enable|reply|unsubscribe|terms|any|us|them|me|my|our|this|that|it|via|upi|ref|neft|imps|rtgs)\b/i;
+const GENERIC_VENDOR=/^(transaction|transaction info|block|check your available balance|available balance|account balance|current balance|closing balance|unknown|bank alert|axis bank|dear customer)$/i;
 const LAB=/(?:Merchant(?: Name)?|Payee(?: Name)?|Beneficiary(?: Name)?|Paid to|Sent to|Transferred to|Paid at|Spent at|Purchase at)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9&.'@\-_ ]{1,38}?)(?=\s+(?:on|via|using|with|Ref|UPI|Txn|Date|Amount|Rs|INR|Info|for|has|is|from)\b|[|,;]|\.\s|$)/gi;
 const AT=/\b(?:[Aa]t|[Tt]o)\s+(?:VPA\s+)?([A-Z0-9][\w&.'@\-]*(?: [A-Z0-9][\w&.'\-]*){0,3})/g;
 function cleanV(v){v=v.trim().replace(/^[ .\-_:]+|[ .\-_:]+$/g,"");if(v.includes("@"))v=v.split("@")[0];
@@ -415,7 +416,12 @@ $("clearF").onclick=()=>{
   $("flt").value="all";$("per").value="last10";$("typ").value="debit";
   $("df").value="";$("dt2").value="";$("search").value="";catF="";dayF="";calO=0;draw();msg("Filters cleared.");
 };
-tx=tx.filter(t=>!(/\b(available balance|current balance|closing balance|account balance|statement available)\b/i.test(String(t.subject||"")) && !/\b(debited|spent|paid|purchase|withdrawn|credited|received|refund|transferred|sent to|paid to)\b/i.test(String(t.snip||""))));
+tx=tx.filter(t=>{
+  const s=(String(t.subject||"")+" "+String(t.snip||"")).toLowerCase();
+  const balanceOnly=/\b(available balance|current balance|closing balance|account balance|statement available)\b/.test(s);
+  const realTxn=/\b(amount\s+)?(debited|credited)\b|\b(spent|paid|purchase|withdrawn|received|refund|transferred|sent to|paid to)\b/.test(s);
+  return !(balanceOnly&&!realTxn);
+});
 tx.forEach(t=>{
   if(!t.mode)t.mode="";
   if(!t.info)t.info="";
