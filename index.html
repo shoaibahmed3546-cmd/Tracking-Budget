@@ -155,6 +155,22 @@ function findVendor(text,from){
   const u=text.match(/VPA\s+([\w.\-]+)@/i);if(u){const v=cleanV(u[1]);if(v)return v.slice(0,40)}
   const n=from.replace(/<.*>/,"").replace(/"/g,"").trim();
   return (n||(from.match(/@([\w.\-]+)/)||[])[1]||"Unknown").slice(0,40)}
+const BANKS=[[/sbicard/i,"SBI Card"],[/hdfc/i,"HDFC Bank"],[/icici/i,"ICICI Bank"],[/\bsbi\b|statebank/i,"SBI"],[/axis/i,"Axis Bank"],[/kotak/i,"Kotak Bank"],[/idfc/i,"IDFC FIRST Bank"],[/yes\s?bank/i,"Yes Bank"],[/indusind/i,"IndusInd Bank"],[/\bpnb\b|punjabnational/i,"PNB"],[/bankofbaroda|\bbob/i,"Bank of Baroda"],[/canara/i,"Canara Bank"],[/federal/i,"Federal Bank"],[/\brbl/i,"RBL Bank"],[/standardchartered/i,"Standard Chartered"],[/unionbank/i,"Union Bank"],[/bankofindia/i,"Bank of India"],[/idbi/i,"IDBI Bank"],[/aubank|au\s?small/i,"AU Small Finance Bank"],[/paytm/i,"Paytm"],[/phonepe/i,"PhonePe"],[/amazonpay/i,"Amazon Pay"]];
+function bankOf(from,text){const f=from.toLowerCase();
+  for(const [re,n] of BANKS)if(re.test(f))return n;
+  const head=text.slice(0,500);for(const [re,n] of BANKS)if(re.test(head))return n;
+  return from.replace(/<.*>/,"").replace(/"/g,"").trim().slice(0,30)}
+function structured(raw,subject){
+  const o={},a=raw.match(/Amount\s+(Debited|Credited)\s*:?\s*(?:INR|Rs\.?|₹)\s*([\d,]+(?:\.\d+)?)/i);
+  if(a){o.kind=/cred/i.test(a[1])?"credit":"debit";o.amt=parseFloat(a[2].replace(/,/g,""))||0}
+  const ac=(raw+" "+subject).match(/(?:Account\s*(?:Number|No\.?)|A\/c(?:\s*no\.?)?)\s*:?\s*([Xx*]*\d{3,6})/i);
+  if(ac)o.acct=ac[1].toUpperCase().replace(/\*/g,"X");
+  const d=raw.match(/Date\s*&\s*Time\s*:?\s*(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})[,\s]+(\d{1,2}):(\d{2})/i);
+  if(d){let [,dd,mm,yy,h,mi]=d;if(yy.length==2)yy="20"+yy;
+    if(+mm>=1&&+mm<=12&&+dd>=1&&+dd<=31)o.ts=`${yy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")} ${h.padStart(2,"0")}:${mi}`}
+  const i=raw.match(/Transaction\s+Info\s*:?\s*([^\n]+)/i);
+  if(i)o.info=i[1].replace(/\s+(?:If you|Please|Note|Dear|For any|Call|Warm|Regards|Thank|\*).*$/i,"").replace(/\s+/g," ").trim().slice(0,120);
+  return o}
 function transactionInfo(text){
   const m=text.match(/\b(?:Transaction Info|Txn Info|Transaction details|Narration)\s*[:\-]\s*([^\n|<]{3,140})/i);
   if(m)return m[1].replace(/\s+/g," ").trim().slice(0,120);
@@ -162,14 +178,13 @@ function transactionInfo(text){
   return upi?upi[1].replace(/\s+/g," ").trim().slice(0,120):"";
 }
 function merchantFromTxnInfo(info){
-  const s=String(info||"").replace(/\s+/g," ").trim();
-  if(!s)return "";
-  const m=s.match(/^UPI\/(?:P2M|P2P)\/[^\/]+\/(.+)$/i);
-  if(m)return m[1].replace(/\s+-\s*(?:See|Ref|Txn|Transaction).*/i,"").trim().slice(0,60);
-  const parts=s.split("/").map(x=>x.trim()).filter(Boolean);
-  if(parts.length>=3)return parts[parts.length-1].replace(/\s+-\s*(?:See|Ref|Txn|Transaction).*/i,"").trim().slice(0,60);
-  return "";
-}
+  const s=String(info||"").replace(/\s+/g," ").trim();if(!s)return "";
+  const parts=s.split("/").map(x=>x.trim()).filter(Boolean);if(parts.length<2)return "";
+  const keep=parts.filter(p=>!/^\d[\d\-]*$/.test(p)&&!/^(UPI|P2M|P2P|P2A|IMPS|NEFT|RTGS|POS|ECOM|ATM|NACH|ACH|MB|IB|DR|CR)$/i.test(p));
+  let v=(keep[0]||"").replace(/\s+-\s*(?:See|Ref|Txn|Transaction).*/i,"").trim();
+  if(v.includes("@"))v=v.split("@")[0].replace(/[._\-]+/g," ").trim();
+  if(v.length<2)return "";
+  return (v==v.toLowerCase()||v==v.toUpperCase())?v.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()):v.slice(0,60)}
 function messageType(text,info,kind){
   const s=(text+" "+info).toLowerCase();
   if(/\breversed\b|\breversal\b/.test(s))return "Reversed Transaction";
@@ -205,7 +220,7 @@ const b64=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g,"+").r
 function bodyText(p,out=[]){
   if(p.body&&p.body.data&&/^text\/(plain|html)/.test(p.mimeType)){
     let s=b64(p.body.data);
-    if(p.mimeType=="text/html"){const d=new DOMParser().parseFromString(s,"text/html");d.querySelectorAll("style,script").forEach(x=>x.remove());s=d.body.textContent}
+    if(p.mimeType=="text/html"){s=s.replace(/<(?:br|\/p|\/div|\/tr|\/td|\/th|\/li|\/h[1-6])\b[^>]*>/gi,"\n");const d=new DOMParser().parseFromString(s,"text/html");d.querySelectorAll("style,script").forEach(x=>x.remove());s=d.body.textContent}
     out.push(s)}
   (p.parts||[]).forEach(x=>bodyText(x,out));return out}
 function vendorOf(text,from){
@@ -220,8 +235,8 @@ function parse(m){
   const H=n=>((m.payload.headers||[]).find(h=>h.name.toLowerCase()==n)||{}).value||"";
   const subject=H("subject");
   if(/\botp\b/i.test(subject))return null;
-  const text=bodyText(m.payload).join(" ").replace(/\s+/g," ");
-  const full=subject+" "+text;
+  const raw=bodyText(m.payload).join("\n"),text=raw.replace(/\s+/g," ");
+  const full=subject+" "+text,S=structured(raw,subject);
   /* Ignore alerts/statements that contain balances but are not transactions. */
   if(/\b(available balance|current balance|closing balance|account balance|balance is|balance as of|statement available|statement generated|minimum due|total due|credit limit|available credit)\b/i.test(full)
      && !/\b(debited|spent|paid|purchase|withdrawn|credited|received|refund|transferred|sent to|paid to)\b/i.test(full)) return null;
@@ -232,15 +247,15 @@ function parse(m){
   const candidates=matches.map(x=>({raw:x[1],pos:x.index})).filter(x=>Number(x.raw.replace(/,/g,""))>0);
   if(!candidates.length)return null;
   const near=candidates.sort((a,b)=>Math.abs(a.pos-keyPos)-Math.abs(b.pos-keyPos))[0];
-  const amt=num(near.raw.replace(/,/g,""));if(!(amt>0))return null;
-  const info=transactionInfo(full);
+  const amt=S.amt||num(near.raw.replace(/,/g,""));if(!(amt>0))return null;
+  const info=S.info||transactionInfo(full);
   const infoVendor=merchantFromTxnInfo(info);
   const parsedVendor=findVendor(full,H("from"));
   const mode=paymentMode(full);
   const vendor=infoVendor || (goodVendor(parsedVendor)?parsedVendor:"Transaction");
-  const kind=CREDIT.test(full)&&!DEBIT.test(full)?"credit":"debit";
+  const kind=S.kind||(CREDIT.test(full)&&!DEBIT.test(full)?"credit":"debit");
   const type=messageType(full,info,kind);
-  return {ts:new Date(+m.internalDate).toLocaleString("sv-SE").slice(0,16),vendor,
+  return {ts:S.ts||new Date(+m.internalDate).toLocaleString("sv-SE").slice(0,16),vendor,bank:bankOf(H("from"),text),acct:S.acct||"",
     info,mode,messageType:type,amount:amt,kind,subject:subject.slice(0,120),
     description:meaningfulDescription({vendor,amount:amt,mode,kind}),
     snip:full.slice(Math.max(0,near.pos-90),near.pos+220)}}
@@ -303,11 +318,10 @@ function draw(){
 <b style="cursor:pointer" onclick="ren('${t.uid}')" title="Tap to edit">${esc(t.vendor)} ✎</b>
 <div class="desc">${esc(t.description||meaningfulDescription(t))}</div>
 <div class="meta">${esc(t.ts)}${t.mode?` · ${esc(t.mode)}`:""}</div>
-${t.description?`<div class="txinfo">${esc(t.description)}</div>`:""}
-${t.info?`<div class="txinfo"><b>Transaction Info:</b> ${esc(t.info)}</div>`:""}
+${t.bank||t.acct?`<div class="meta">🏦 ${esc(t.bank||"")}${t.acct?` · A/c ${esc(t.acct)}`:""}</div>`:""}
 ${t.messageType?`<span class="msgtype">${esc(t.messageType)}</span>`:""}
 ${t.mode?`<span class="mode">${esc(t.mode)}</span>`:""}
-${t.snip?`<details><summary class="hint">Email details</summary><div class="hint">${esc(t.subject)}<br>${esc(t.snip)}</div></details>`:""}
+${t.snip?`<details><summary class="hint">Email details</summary><div class="hint">${esc(t.subject)}<br>${t.info?"Txn info: "+esc(t.info)+"<br>":""}${esc(t.snip)}</div></details>`:""}
 </div>
 <b class="${t.kind=="credit"?"cr":"db"} amt">${t.kind=="credit"?"+":"−"}${inr(t.amount)}</b></div>
 <div class="r">
