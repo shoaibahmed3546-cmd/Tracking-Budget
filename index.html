@@ -168,23 +168,34 @@ function structured(raw,subject){
   const d=raw.match(/Date\s*&\s*Time\s*:?\s*(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})[,\s]+(\d{1,2}):(\d{2})/i);
   if(d){let [,dd,mm,yy,h,mi]=d;if(yy.length==2)yy="20"+yy;
     if(+mm>=1&&+mm<=12&&+dd>=1&&+dd<=31)o.ts=`${yy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")} ${h.padStart(2,"0")}:${mi}`}
-  const i=raw.match(/Transaction\s+Info\s*:?\s*([^\n]+)/i);
-  if(i)o.info=i[1].replace(/\s+(?:If you|Please|Note|Dear|For any|Call|Warm|Regards|Thank|\*).*$/i,"").replace(/\s+/g," ").trim().slice(0,120);
+  const normalized=raw.replace(/\s+/g," ");
+  const i=(raw.match(/Transaction\s+Info\s*:?\s*([^\n]+)/i)||normalized.match(/Transaction\s+Info\s*:?\s*(UPI\/P2[MP]\/[^<]{3,160})/i));
+  if(i)o.info=i[1].replace(/\s+(?:If you|Please|Note|Dear|For any|Call|Warm|Regards|Thank|\*).*$/i,"").replace(/\s+/g," ").trim().slice(0,140);
   return o}
 function transactionInfo(text){
-  const m=text.match(/\b(?:Transaction Info|Txn Info|Transaction details|Narration)\s*[:\-]\s*([^\n|<]{3,140})/i);
-  if(m)return m[1].replace(/\s+/g," ").trim().slice(0,120);
-  const upi=text.match(/\b(UPI\/(?:P2M|P2P)\/[A-Z0-9._\-\/]+(?:\/[A-Za-z0-9&.'\- ]{2,80})?)/i);
-  return upi?upi[1].replace(/\s+/g," ").trim().slice(0,120):"";
+  const s=String(text||"").replace(/\r/g,"\n");
+  const m=s.match(/\b(?:Transaction\s*Info|Txn\s*Info|Transaction\s*details|Narration)\s*[:\-]?\s*([^\n|<]{3,180})/i);
+  if(m)return m[1].replace(/\s+/g," ").trim().replace(/\s+(?:Account\s*(?:Number|No\.?)|Date\s*&\s*Time|Amount\s+(?:Debited|Credited))\s*:?.*$/i,"").trim().slice(0,140);
+  const upi=s.match(/\b(UPI\/(?:P2M|P2P)\/[A-Z0-9._\-]+\/[A-Za-z0-9&.'\- ]{2,100})/i);
+  return upi?upi[1].replace(/\s+/g," ").trim().slice(0,140):"";
 }
 function merchantFromTxnInfo(info){
-  const s=String(info||"").replace(/\s+/g," ").trim();if(!s)return "";
-  const parts=s.split("/").map(x=>x.trim()).filter(Boolean);if(parts.length<2)return "";
-  const keep=parts.filter(p=>!/^\d[\d\-]*$/.test(p)&&!/^(UPI|P2M|P2P|P2A|IMPS|NEFT|RTGS|POS|ECOM|ATM|NACH|ACH|MB|IB|DR|CR)$/i.test(p));
-  let v=(keep[0]||"").replace(/\s+-\s*(?:See|Ref|Txn|Transaction).*/i,"").trim();
+  const s=String(info||"").replace(/\s+/g," ").trim();
+  if(!s)return "";
+  // Axis-style UPI/P2M/<reference>/<merchant>. Always take the merchant
+  // portion after the reference, never an earlier word from the email.
+  let m=s.match(/^UPI\/(?:P2M|P2P)\/[^\/]+\/(.+)$/i);
+  let v=m?m[1].trim():"";
+  if(!v){
+    const parts=s.split("/").map(x=>x.trim()).filter(Boolean);
+    if(parts.length>=3)v=parts.slice(3).join(" / ").trim();
+  }
+  if(!v)return "";
+  v=v.replace(/\s+-\s*(?:See|Ref|Txn|Transaction).*/i,"").trim();
   if(v.includes("@"))v=v.split("@")[0].replace(/[._\-]+/g," ").trim();
   if(v.length<2)return "";
-  return (v==v.toLowerCase()||v==v.toUpperCase())?v.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()):v.slice(0,60)}
+  return v.slice(0,60);
+}
 function messageType(text,info,kind){
   const s=(text+" "+info).toLowerCase();
   if(/\breversed\b|\breversal\b/.test(s))return "Reversed Transaction";
@@ -318,20 +329,43 @@ function inPeriod(t){let v=$("per").value;if(v=="last10")v="d30";const n=new Dat
   if(v=="m1"){const p=new Date(n.getFullYear(),n.getMonth()-1,1);return d.getFullYear()==p.getFullYear()&&d.getMonth()==p.getMonth()}
   return d>=new Date(n-(v=="d30"?30:90)*864e5)}
 function draw(){
-  const sum=a=>a.reduce((x,t)=>x+(t.skip?0:num(t.amount)),0),P=tx.filter(inPeriod),typ=$("typ").value;
+  const sum=a=>a.reduce((x,t)=>x+(t.skip?0:num(t.amount)),0);
+  const periodAll=tx.filter(inPeriod);
+  const typ=$("typ").value;
+
+  // A calendar day is a real filter. When one is selected, every number
+  // on the dashboard and the transaction list refers to that exact day.
+  const P=dayF?periodAll.filter(t=>t.ts.startsWith(dayF)):periodAll;
+
+  // "Latest 10" means latest 10 transactions, not the last 30 days.
+  const baseForView=$("per").value=="last10"
+    ? [...periodAll].sort((a,b)=>b.ts.localeCompare(a.ts)).slice(0,10)
+    : P;
+  const T=baseForView.filter(t=>typ=="all"||t.kind==typ);
+
   const d=P.filter(t=>t.kind=="debit"),c=P.filter(t=>t.kind=="credit");
-  $("s1").textContent=inr(sum(d));$("s5").textContent=inr(sum(c));$("s6").textContent=inr(sum(c)-sum(d));$("s7").textContent=P.length;
-  $("netBig").textContent=inr(sum(c)-sum(d));
-  $("s2").textContent=inr(sum(d.filter(t=>t.need_want=="Need")));$("s3").textContent=inr(sum(d.filter(t=>t.need_want=="Want")));
+  $("s1").textContent=inr(sum(d));$("s5").textContent=inr(sum(c));$("s6").textContent=inr(sum(c)-sum(d));
+  $("s7").textContent=P.length;$("netBig").textContent=inr(sum(c)-sum(d));
+  $("s2").textContent=inr(sum(d.filter(t=>t.need_want=="Need")));
+  $("s3").textContent=inr(sum(d.filter(t=>t.need_want=="Want")));
   $("s4").textContent=tx.filter(t=>!t.category).length;
-  const T=P.filter(t=>typ=="all"||t.kind==typ),by={};
+
+  const by={};
   T.forEach(t=>{if(t.skip)return;const k=t.category||"Uncategorized";by[k]=(by[k]||0)+num(t.amount)});
   const tot=sum(T),max=Math.max(0,...Object.values(by)),cls=typ=="credit"?"cr":typ=="all"?"all":"";
   $("B").innerHTML=Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="bar ${cls}${k==catF?" sel":""}" data-k="${esc(k)}">
-<div class="bl"><span>${esc(k)}</span><b>${inr(v)} · ${tot?Math.round(v/tot*100):0}%</b></div><i style="width:${v/max*100}%"></i></div>`).join("")
+<div class="bl"><span>${esc(k)}</span><b>${inr(v)} · ${tot?Math.round(v/tot*100):0}%</b></div><i style="width:${max?v/max*100:0}%"></i></div>`).join("")
     ||"<p style='color:var(--m)'>No transactions in this period.</p>";
+
   const un=$("flt").value=="un";
-  $("L").innerHTML=[...($("per").value=="last10"?tx.filter(t=>typ=="all"||t.kind==typ):T)].sort((a,b)=>b.ts.localeCompare(a.ts)).filter(t=>{const q=($("search")?.value||"").trim().toLowerCase();return (!un||!t.category)&&(!catF||(t.category||"Uncategorized")==catF)&&(!dayF||t.ts.startsWith(dayF))&&(!q||[t.vendor,t.comment,t.subject,t.category].some(v=>String(v||"").toLowerCase().includes(q)))}).slice(0,$("per").value=="last10"?10:99999).map(t=>`
+  const q=($("search")?.value||"").trim().toLowerCase();
+  const listSource=$("per").value=="last10"?baseForView:T;
+  $("L").innerHTML=[...listSource].sort((a,b)=>b.ts.localeCompare(a.ts)).filter(t=>{
+    return (!un||!t.category)
+      &&(!catF||(t.category||"Uncategorized")==catF)
+      &&(!dayF||t.ts.startsWith(dayF))
+      &&(!q||[t.vendor,t.info,t.comment,t.subject,t.category].some(v=>String(v||"").toLowerCase().includes(q)));
+  }).slice(0,$("per").value=="last10"?10:99999).map(t=>`
 <div class="card${t.skip?" off":""}"><div class="top"><div style="min-width:0">
 <b style="cursor:pointer" onclick="ren('${t.uid}')" title="Tap to edit">${esc(t.vendor)} ✎</b>
 <div class="desc">${esc(t.description||meaningfulDescription(t))}</div>
@@ -352,7 +386,8 @@ ${MODES.map(m=>`<option ${m==t.mode?"selected":""}>${esc(m)}</option>`).join("")
 <button class="${t.need_want=="Want"?"on":""}" onclick="upd('${t.uid}',{need_want:'Want'})">Want</button></div>
 <input placeholder="Comment" value="${esc(t.comment)}" onchange="upd('${t.uid}',{comment:this.value})">
 <div class="tog"><button class="${t.skip?"":"on"}" onclick="upd('${t.uid}',{skip:${!t.skip}})">${t.skip?"○ Not counted · tap to count":"● Counted in totals"}</button></div></div></div>`).join("")
-  ||"<p style='color:var(--m)'>Nothing here yet. Tap “Sync from Gmail”.</p>"}
+  ||"<p style='color:var(--m)'>Nothing here yet. Tap “Sync from Gmail”.</p>";
+}
 function show(){$("setup").hidden=!!cid;$("app").hidden=!cid;if(cid)draw()}
 $("savecid").onclick=()=>{const v=$("cid").value.trim();if(v){cid=v;LS.s("ft_cid",v);show()}};
 $("cfg").onclick=()=>{
@@ -368,10 +403,13 @@ let dayF="",calO=0,mk="debit",mnw="";
 const ym=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
 const _draw=draw;draw=()=>{_draw();extras();lh()};
 function lh(){const v=$("per").value;$("cr").hidden=v!="cus";
-  const labels={last10:"Latest 10",m0:"This month",m1:"Last month",d30:"Past 1 month",d90:"Past 3 months",all:"All time",cus:"Custom range"};
+  const labels={last10:"Latest 10",m0:"This month",m1:"Last month",d30:"Past 1 month",d90:"Past 3 months",all:"All time",cus:"Between selected dates"};
   $("periodLabel").textContent=labels[v]||v;
   $("LH").textContent=v=="last10"?"Latest 10 transactions · pick a period above to see more":"All transactions for the selected period"}
-$("per").onchange=$("df").onchange=$("dt2").onchange=draw;
+$("per").onchange=$("df").onchange=$("dt2").onchange=()=>{
+  dayF="";
+  draw();
+};
 function setTypeFilter(v){$("typ").value=v;["tfDebit","tfCredit","tfAll"].forEach(id=>$(id).classList.remove("on"));$("tf"+(v=="debit"?"Debit":v=="credit"?"Credit":"All")).classList.add("on");draw()}
 $("tfDebit").onclick=()=>setTypeFilter("debit");$("tfCredit").onclick=()=>setTypeFilter("credit");$("tfAll").onclick=()=>setTypeFilter("all");
 $("flt").onchange=draw;
@@ -401,15 +439,30 @@ function extras(){
   $("TR").innerHTML=`<div style="display:flex;gap:6px;margin-top:8px">${ms.map(m=>`<div style="flex:1;text-align:center;font-size:11px"><div style="display:flex;gap:2px;align-items:flex-end;height:100px"><div style="flex:1;background:var(--r);height:${m.d/mx*100}%"></div><div style="flex:1;background:var(--g);height:${m.c/mx*100}%"></div></div>${m.l}<br><span style="color:var(--m)">${m.d?inr(m.d).replace(/\.\d+/,""):""}</span></div>`).join("")}</div><div class="hint">Red = debited · Green = credited</div>`;
   /* calendar of daily spend */
   const cd=new Date(now.getFullYear(),now.getMonth()+calO,1),k=ym(cd),dim=new Date(cd.getFullYear(),cd.getMonth()+1,0).getDate(),dt={};
-  deb.filter(t=>t.ts.startsWith(k)).forEach(t=>{const d=+t.ts.slice(8,10);dt[d]=(dt[d]||0)+t.amount});
+  tx.filter(t=>!t.skip&&t.ts.startsWith(k)).forEach(t=>{
+    const d=+t.ts.slice(8,10);
+    if(!dt[d])dt[d]={d:0,c:0};
+    if(t.kind=="credit")dt[d].c+=num(t.amount); else dt[d].d+=num(t.amount);
+  });
   $("calt").textContent=cd.toLocaleString("en",{month:"long",year:"numeric"});
   let h=["S","M","T","W","T","F","S"].map(x=>`<div class="hint" style="text-align:center">${x}</div>`).join("")+"<div></div>".repeat(cd.getDay());
-  for(let d=1;d<=dim;d++){const key=k+"-"+String(d).padStart(2,"0");
-    h+=`<div data-d="${key}" style="text-align:center;padding:4px 0;border-radius:8px;cursor:pointer;font-size:12px;${key==dayF?"outline:2px solid var(--a)":""}">${d}<br><span style="color:var(--r);font-size:10px">${dt[d]?Math.round(dt[d]):"&nbsp;"}</span></div>`}
+  for(let d=1;d<=dim;d++){
+    const key=k+"-"+String(d).padStart(2,"0"),v=dt[d]||{d:0,c:0};
+    const marks=(v.d?`<span style="color:var(--r);font-size:10px">−${Math.round(v.d).toLocaleString("en-IN")}</span>`:"")
+      +(v.c?`<span style="color:var(--g);font-size:10px"> +${Math.round(v.c).toLocaleString("en-IN")}</span>`:"");
+    h+=`<div data-d="${key}" style="text-align:center;padding:4px 0;border-radius:8px;cursor:pointer;font-size:12px;${key==dayF?"outline:2px solid var(--a)":""}">${d}<br>${marks||"&nbsp;"}</div>`;
+  }
   $("CAL").innerHTML=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:6px">${h}</div>`+(dayF?`<div class="hint">Showing ${dayF}. Tap the day again to clear.</div>`:"");
 }
 $("BS").onchange=e=>{BUD[e.target.dataset.c]=+e.target.value||0;LS.s("ft_bud",BUD);draw()};
-$("CAL").onclick=e=>{const c=e.target.closest("[data-d]");if(c){dayF=dayF==c.dataset.d?"":c.dataset.d;if(dayF)$("per").value="all";draw()}};
+$("CAL").onclick=e=>{
+  const c=e.target.closest("[data-d]");
+  if(c){
+    dayF=dayF==c.dataset.d?"":c.dataset.d;
+    if(dayF){$("per").value="all";setTypeFilter("all");}
+    draw();
+  }
+};
 $("cp").onclick=()=>{calO--;draw()};$("cn").onclick=()=>{calO++;draw()};
 /* manual entry */
 $("mc").innerHTML=CATS.map(c=>`<option>${esc(c)}</option>`).join("");$("md").value=new Date().toLocaleDateString("sv-SE");
@@ -464,6 +517,16 @@ tx.forEach(t=>{
   const mv=merchantFromTxnInfo(t.info);
   if(mv)t.vendor=mv;
   else if(!goodVendor(t.vendor)||/^(block|transaction info|unknown)$/i.test(t.vendor||""))t.vendor="Transaction";
+  t.description=meaningfulDescription(t);
+});
+save();
+tx.forEach(t=>{
+  if(t.info){
+    const mv=merchantFromTxnInfo(t.info);
+    if(mv && (!t.vendor || /^(transaction|block|unknown|cred|paid)$/i.test(String(t.vendor).trim()))){
+      t.vendor=mv;
+    }
+  }
   t.description=meaningfulDescription(t);
 });
 save();
