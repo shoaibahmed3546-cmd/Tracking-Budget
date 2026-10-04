@@ -149,12 +149,12 @@ const AT=/\b(?:[Aa]t|[Tt]o)\s+(?:VPA\s+)?([A-Z0-9][\w&.'@\-]*(?: [A-Z0-9][\w&.'\
 function cleanV(v){v=v.trim().replace(/^[ .\-_:]+|[ .\-_:]+$/g,"");if(v.includes("@"))v=v.split("@")[0];
   if(v.length<2||BAD2.test(v)||/\byou\b/i.test(v))return "";
   return (v==v.toLowerCase()||v==v.toUpperCase())?v.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()):v}
-function findVendor(text,from){
+function findVendor(text){
   if(/\bATM\b|cash withdraw/i.test(text))return "ATM Cash Withdrawal";
   for(const re of [LAB,AT])for(const m of text.matchAll(re)){const v=cleanV(m[1]);if(v)return v.slice(0,40)}
   const u=text.match(/VPA\s+([\w.\-]+)@/i);if(u){const v=cleanV(u[1]);if(v)return v.slice(0,40)}
-  const n=from.replace(/<.*>/,"").replace(/"/g,"").trim();
-  return (n||(from.match(/@([\w.\-]+)/)||[])[1]||"Unknown").slice(0,40)}
+  return "";
+}
 const BANKS=[[/sbicard/i,"SBI Card"],[/hdfc/i,"HDFC Bank"],[/icici/i,"ICICI Bank"],[/\bsbi\b|statebank/i,"SBI"],[/axis/i,"Axis Bank"],[/kotak/i,"Kotak Bank"],[/idfc/i,"IDFC FIRST Bank"],[/yes\s?bank/i,"Yes Bank"],[/indusind/i,"IndusInd Bank"],[/\bpnb\b|punjabnational/i,"PNB"],[/bankofbaroda|\bbob/i,"Bank of Baroda"],[/canara/i,"Canara Bank"],[/federal/i,"Federal Bank"],[/\brbl/i,"RBL Bank"],[/standardchartered/i,"Standard Chartered"],[/unionbank/i,"Union Bank"],[/bankofindia/i,"Bank of India"],[/idbi/i,"IDBI Bank"],[/aubank|au\s?small/i,"AU Small Finance Bank"],[/paytm/i,"Paytm"],[/phonepe/i,"PhonePe"],[/amazonpay/i,"Amazon Pay"]];
 function bankOf(from,text){const f=from.toLowerCase();
   for(const [re,n] of BANKS)if(re.test(f))return n;
@@ -210,10 +210,14 @@ function goodVendor(v){
 }
 function meaningfulDescription(t){
   const amount=inr(t.amount);
-  const who=t.vendor&&goodVendor(t.vendor)?t.vendor:"the transaction";
+  const who=t.vendor&&goodVendor(t.vendor)&&t.vendor!=="Transaction"?t.vendor:"";
   const method=t.mode?` via ${t.mode}`:"";
-  if(t.kind=="credit") return `Received ${amount}${who!="the transaction"?` from ${who}`:""}${method}.`;
-  return `Paid ${amount}${who!="the transaction"?` to ${who}`:""}${method}.`;
+  if(who){
+    return t.kind=="credit" ? `Received ${amount} from ${who}${method}.` : `Paid ${amount} to ${who}${method}.`;
+  }
+  // If no merchant can be identified, do not invent one. Show the transaction itself.
+  if(t.info) return `${t.kind=="credit"?"Received":"Paid"} ${amount}${method}. Transaction Info: ${t.info}`;
+  return `${t.kind=="credit"?"Received":"Paid"} ${amount}${method}. Transaction`;
 }
 
 const b64=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0)));
@@ -250,9 +254,11 @@ function parse(m){
   const amt=S.amt||num(near.raw.replace(/,/g,""));if(!(amt>0))return null;
   const info=S.info||transactionInfo(full);
   const infoVendor=merchantFromTxnInfo(info);
-  const parsedVendor=findVendor(full,H("from"));
+  const parsedVendor=findVendor(full);
   const mode=paymentMode(full);
-  const vendor=infoVendor || (goodVendor(parsedVendor)?parsedVendor:"Transaction");
+  // Merchant priority is deliberate: Transaction Info -> explicit merchant/payee -> generic Transaction.
+  // Never use the email sender/subject as the merchant; bank words such as "Block" are not merchants.
+  const vendor=goodVendor(infoVendor)?infoVendor:(goodVendor(parsedVendor)?parsedVendor:"Transaction");
   const kind=S.kind||(CREDIT.test(full)&&!DEBIT.test(full)?"credit":"debit");
   const type=messageType(full,info,kind);
   return {ts:S.ts||new Date(+m.internalDate).toLocaleString("sv-SE").slice(0,16),vendor,bank:bankOf(H("from"),text),acct:S.acct||"",
@@ -317,6 +323,7 @@ function draw(){
 <div class="card${t.skip?" off":""}"><div class="top"><div style="min-width:0">
 <b style="cursor:pointer" onclick="ren('${t.uid}')" title="Tap to edit">${esc(t.vendor)} ✎</b>
 <div class="desc">${esc(t.description||meaningfulDescription(t))}</div>
+${t.vendor==="Transaction"&&t.info?`<div class="txinfo"><b>Transaction Info:</b> ${esc(t.info)}</div>`:""}
 <div class="meta">${esc(t.ts)}${t.mode?` · ${esc(t.mode)}`:""}</div>
 ${t.bank||t.acct?`<div class="meta">🏦 ${esc(t.bank||"")}${t.acct?` · A/c ${esc(t.acct)}`:""}</div>`:""}
 ${t.messageType?`<span class="msgtype">${esc(t.messageType)}</span>`:""}
@@ -409,10 +416,12 @@ $("csv").onclick=()=>{const q=s=>'"'+String(s).replace(/"/g,'""')+'"',
 
 tx.forEach(t=>{
   if(!t.mode)t.mode="";
-  if(!t.info)t.info="";
+  if(!t.info)t.info=transactionInfo([t.subject||"",t.snip||""].join(" "))||"";
   if(!t.messageType)t.messageType=messageType([t.subject||"",t.info||""].join(" "),t.info||"",t.kind||"debit");
+  // Repair older records that were incorrectly named from email text (e.g. "Block").
   const mv=merchantFromTxnInfo(t.info);
-  if(mv && (!t.vendor || /^(transaction|block|unknown)$/i.test(t.vendor)))t.vendor=mv;
+  if(mv)t.vendor=mv;
+  else if(!goodVendor(t.vendor)||/^(block|transaction info|unknown)$/i.test(t.vendor||""))t.vendor="Transaction";
   t.description=meaningfulDescription(t);
 });
 save();
@@ -439,8 +448,11 @@ tx=tx.filter(t=>{
 });
 tx.forEach(t=>{
   if(!t.mode)t.mode="";
-  if(!t.info)t.info="";
-  if(!t.description)t.description=meaningfulDescription(t);
+  if(!t.info)t.info=transactionInfo([t.subject||"",t.snip||""].join(" "))||"";
+  const mv=merchantFromTxnInfo(t.info);
+  if(mv)t.vendor=mv;
+  else if(!goodVendor(t.vendor)||/^(block|transaction info|unknown)$/i.test(t.vendor||""))t.vendor="Transaction";
+  t.description=meaningfulDescription(t);
 });
 save();
 const oldMsg=msg;
