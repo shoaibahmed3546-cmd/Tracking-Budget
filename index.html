@@ -29,6 +29,7 @@ button{cursor:pointer}.p{background:var(--a);color:#fff;border:0}
 .bar i{display:block;height:8px;border-radius:4px;background:var(--r);margin-top:4px}
 .bar.cr i{background:var(--g)}.bar.all i{background:var(--a)}.bar.sel{outline:2px solid var(--a)}
 .hint{color:var(--m);font-size:12px;margin-top:6px}
+[hidden]{display:none!important}
 </style></head><body><main>
 <header><h1>💰 My Transactions</h1>
 <select id="flt"><option value="all">All</option><option value="un">To categorize</option></select>
@@ -52,9 +53,10 @@ button{cursor:pointer}.p{background:var(--a);color:#fff;border:0}
 <div class="tog"><button id="n1">Need</button><button id="n2">Want</button></div>
 <input id="mn" placeholder="Comment"><button class="p" id="msv" style="flex:1 1 100%">Save</button></div></div>
 <div class="r" style="margin:0 0 10px"><select id="per" style="flex:1 1 45%">
-<option value="m0">This month</option><option value="m1">Last month</option><option value="d30" selected>Past 1 month</option>
-<option value="d90">Past 3 months</option><option value="all">All time</option></select>
+<option value="last10" selected>Last 10 transactions</option><option value="m0">This month</option><option value="m1">Last month</option><option value="d30">Past 1 month</option>
+<option value="d90">Past 3 months</option><option value="all">All time</option><option value="cus">Between dates…</option></select>
 <select id="typ" style="flex:1 1 45%"><option value="debit">Debited</option><option value="credit">Credited</option><option value="all">Both</option></select></div>
+<div id="cr" class="r" style="margin:0 0 10px" hidden><input type="date" id="df" style="flex:1 1 45%"><input type="date" id="dt2" style="flex:1 1 45%"></div>
 <div class="s"><div><small>Debited</small><b id="s1" class="db"></b></div><div><small>Credited</small><b id="s5" class="cr"></b></div>
 <div><small>Needs</small><b id="s2"></b></div><div><small>Wants</small><b id="s3"></b></div>
 <div><small>To categorize (all time)</small><b id="s4"></b></div></div>
@@ -65,27 +67,40 @@ button{cursor:pointer}.p{background:var(--a);color:#fff;border:0}
 <details><summary class="hint" style="cursor:pointer">Set monthly limits</summary><div id="BS"></div></details></div>
 <div class="card"><b>Income vs expense</b> <span class="hint">(last 6 months)</span><div id="TR"></div></div>
 <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><button id="cp">‹</button><b id="calt"></b><button id="cn">›</button></div><div id="CAL"></div></div>
+<div id="LH" class="hint" style="margin:4px 2px 8px"></div>
 <div id="L"></div>
 </div>
 </main>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
-const SCOPE="https://www.googleapis.com/auth/gmail.readonly",DAYS=60;
+const SCOPE="https://www.googleapis.com/auth/gmail.readonly",DAYS=190;
 const CATS=["Shopping","Food & Dining","Groceries","Self Cash","Transport","Bills & Utilities","Rent / EMI","Health","Entertainment","Subscriptions","Travel","Investments","Transfers","Income","Other"];
 const $=i=>document.getElementById(i);
 const LS={g:(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}},s:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-let tx=LS.g("ft_tx",[]),seen=new Set(LS.g("ft_seen",[])),cid=LS.g("ft_cid",""),token=null;
+let tx=LS.g("ft_tx",[]).filter(t=>Number.isFinite(t.amount)),seen=new Set(LS.g("ft_seen",[])),cid=LS.g("ft_cid",""),token=null;
 const msg=t=>$("msg").textContent=t;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const inr=n=>"₹"+n.toLocaleString("en-IN",{maximumFractionDigits:2});
 const save=()=>{LS.s("ft_tx",tx);LS.s("ft_seen",[...seen])};
 
 /* ---------- email parsing ---------- */
-const AMT=/(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)/i;
+const AMT=/(?:\bRs\.?|\bINR|₹)\s*(\d[\d,]*(?:\.\d{1,2})?)/i;
 const KEYS=/debited|spent|paid|payment|purchase|withdrawn|credited|received|refund|sent/i;
 const CREDIT=/credited|refund|received/i, DEBIT=/debited|spent|paid|purchase|withdrawn|sent/i;
 const VEND=/\b(?:at|to|towards|merchant)\s+(?:VPA\s+)?([A-Za-z0-9][A-Za-z0-9&.'@\-_ ]{1,35}?)(?=\s+(?:on|via|using|with|Ref|UPI|for|has|is)\b|[.,]|$)/gi;
 const BAD=/^(your|a\/c|account|the|you|bank|card|xx)/i;
+const BAD2=/^(vpa|your|you|account|a\/c|the|bank|card|xx|rs|inr|help|know|view|check|avoid|contact|call|block|report|download|visit|click|login|update|customer|get|see|track|manage|pay|learn|stay|safe|secure|share|never|please|enable|reply|unsubscribe|terms|any|us|them|me|my|our|this|that|it|via|upi|ref|neft|imps|rtgs)\b/i;
+const LAB=/(?:Merchant(?: Name)?|Payee(?: Name)?|Beneficiary(?: Name)?|Paid to|Sent to|Transferred to|Paid at|Spent at|Purchase at)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9&.'@\-_ ]{1,38}?)(?=\s+(?:on|via|using|with|Ref|UPI|Txn|Date|Amount|Rs|INR|Info|for|has|is|from)\b|[|,;]|\.\s|$)/gi;
+const AT=/\b(?:[Aa]t|[Tt]o)\s+(?:VPA\s+)?([A-Z0-9][\w&.'@\-]*(?: [A-Z0-9][\w&.'\-]*){0,3})/g;
+function cleanV(v){v=v.trim().replace(/^[ .\-_:]+|[ .\-_:]+$/g,"");if(v.includes("@"))v=v.split("@")[0];
+  if(v.length<2||BAD2.test(v)||/\byou\b/i.test(v))return "";
+  return (v==v.toLowerCase()||v==v.toUpperCase())?v.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()):v}
+function findVendor(text,from){
+  if(/\bATM\b|cash withdraw/i.test(text))return "ATM Cash Withdrawal";
+  for(const re of [LAB,AT])for(const m of text.matchAll(re)){const v=cleanV(m[1]);if(v)return v.slice(0,40)}
+  const u=text.match(/VPA\s+([\w.\-]+)@/i);if(u){const v=cleanV(u[1]);if(v)return v.slice(0,40)}
+  const n=from.replace(/<.*>/,"").replace(/"/g,"").trim();
+  return (n||(from.match(/@([\w.\-]+)/)||[])[1]||"Unknown").slice(0,40)}
 const b64=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0)));
 function bodyText(p,out=[]){
   if(p.body&&p.body.data&&/^text\/(plain|html)/.test(p.mimeType)){
@@ -106,9 +121,10 @@ function parse(m){
   const subject=H("subject");if(/\botp\b/i.test(subject))return null;
   const text=bodyText(m.payload).join(" ").replace(/\s+/g," "),full=subject+" "+text;
   const a=full.match(AMT);if(!a||!KEYS.test(full))return null;
-  return {ts:new Date(+m.internalDate).toLocaleString("sv-SE").slice(0,16),vendor:vendorOf(full,H("from")),
-    amount:parseFloat(a[1].replace(/,/g,"")),kind:CREDIT.test(full)&&!DEBIT.test(full)?"credit":"debit",
-    subject:subject.slice(0,120)}}
+  const amt=parseFloat(a[1].replace(/,/g,""));if(!(amt>0))return null;
+  return {ts:new Date(+m.internalDate).toLocaleString("sv-SE").slice(0,16),vendor:findVendor(full,H("from")),
+    amount:amt,kind:CREDIT.test(full)&&!DEBIT.test(full)?"credit":"debit",
+    subject:subject.slice(0,120),snip:full.slice(Math.max(0,full.search(AMT)-60),full.search(AMT)+180)}}
 
 /* ---------- Gmail sync ---------- */
 const signin=()=>new Promise((res,rej)=>{
@@ -123,7 +139,7 @@ async function sync(){
     const q=encodeURIComponent(`in:inbox newer_than:${DAYS}d (debited OR spent OR paid OR payment OR purchase OR withdrawn OR credited OR UPI OR transaction)`);
     let ids=[],pt="";
     do{const r=await api(`messages?q=${q}&maxResults=100`+(pt?`&pageToken=${pt}`:""));
-      ids.push(...(r.messages||[]).map(m=>m.id));pt=r.nextPageToken}while(pt&&ids.length<500);
+      ids.push(...(r.messages||[]).map(m=>m.id));pt=r.nextPageToken}while(pt&&ids.length<1500);
     const todo=ids.filter(i=>!seen.has(i));let n=0;
     for(let i=0;i<todo.length;i+=10){
       await Promise.all(todo.slice(i,i+10).map(async id=>{
@@ -136,10 +152,15 @@ async function sync(){
   }catch(e){msg("Error: "+(e.message||e))}}
 
 /* ---------- UI ---------- */
+function ren(uid){const t=tx.find(x=>x.uid==uid),n=prompt("Merchant name:",t.vendor);if(n==null||!n.trim())return;
+  const old=t.vendor,nn=n.trim(),same=tx.filter(x=>x.vendor==old&&x.uid!=uid).length;
+  upd(uid,{vendor:nn});
+  if(same&&confirm("Also rename the other "+same+" \u201c"+old+"\u201d entries to \u201c"+nn+"\u201d?")){tx.forEach(x=>{if(x.vendor==old)x.vendor=nn});save();draw()}}
 function upd(uid,b){const t=tx.find(x=>x.uid==uid);Object.assign(t,b);
   if(b.category)tx.forEach(x=>{if(x.vendor==t.vendor&&!x.category)x.category=b.category});save();draw()}
 let catF="";
-function inPeriod(t){const v=$("per").value,n=new Date(),d=new Date(t.ts.replace(" ","T"));
+function inPeriod(t){let v=$("per").value;if(v=="last10")v="d30";const n=new Date(),d=new Date(t.ts.replace(" ","T"));
+  if(v=="cus"){const k=t.ts.slice(0,10),f=$("df").value,e=$("dt2").value;return (!f||k>=f)&&(!e||k<=e)}
   if(v=="all")return true;
   if(v=="m0")return d.getFullYear()==n.getFullYear()&&d.getMonth()==n.getMonth();
   if(v=="m1"){const p=new Date(n.getFullYear(),n.getMonth()-1,1);return d.getFullYear()==p.getFullYear()&&d.getMonth()==p.getMonth()}
@@ -157,8 +178,8 @@ function draw(){
 <div class="bl"><span>${esc(k)}</span><b>${inr(v)} · ${Math.round(v/tot*100)}%</b></div><i style="width:${v/max*100}%"></i></div>`).join("")
     ||"<p style='color:var(--m)'>No transactions in this period.</p>";
   const un=$("flt").value=="un";
-  $("L").innerHTML=[...T].sort((a,b)=>b.ts.localeCompare(a.ts)).filter(t=>(!un||!t.category)&&(!catF||(t.category||"Uncategorized")==catF)&&(!dayF||t.ts.startsWith(dayF))).map(t=>`
-<div class="card"><div class="top"><div><b>${esc(t.vendor)}</b><br><small>${esc(t.ts)}</small></div>
+  $("L").innerHTML=[...($("per").value=="last10"?tx.filter(t=>typ=="all"||t.kind==typ):T)].sort((a,b)=>b.ts.localeCompare(a.ts)).filter(t=>(!un||!t.category)&&(!catF||(t.category||"Uncategorized")==catF)&&(!dayF||t.ts.startsWith(dayF))).slice(0,$("per").value=="last10"?10:99999).map(t=>`
+<div class="card"><div class="top"><div><b style="cursor:pointer" onclick="ren('${t.uid}')" title="Tap to edit">${esc(t.vendor)} ✎</b><br><small>${esc(t.ts)}</small>${t.snip?`<details><summary class="hint">Email details</summary><div class="hint">${esc(t.subject)}<br>${esc(t.snip)}</div></details>`:""}</div>
 <b class="${t.kind=="credit"?"cr":"db"}">${t.kind=="credit"?"+":"−"}${inr(t.amount)}</b></div>
 <div class="r"><select onchange="upd('${t.uid}',{category:this.value})"><option value="">Category…</option>
 ${CATS.map(c=>`<option ${c==t.category?"selected":""}>${esc(c)}</option>`).join("")}</select>
@@ -168,7 +189,10 @@ ${CATS.map(c=>`<option ${c==t.category?"selected":""}>${esc(c)}</option>`).join(
   ||"<p style='color:var(--m)'>Nothing here yet. Tap “Sync from Gmail”.</p>"}
 function show(){$("setup").hidden=!!cid;$("app").hidden=!cid;if(cid)draw()}
 $("savecid").onclick=()=>{const v=$("cid").value.trim();if(v){cid=v;LS.s("ft_cid",v);show()}};
-$("cfg").onclick=()=>{if(confirm("Change the saved Google Client ID?")){cid="";LS.s("ft_cid","");show()}};
+$("cfg").onclick=()=>{
+  if(confirm("Re-scan all emails from scratch?\nSynced items will be rebuilt (their categories are reset). Entries you added manually stay.")){
+    tx=tx.filter(t=>String(t.uid).startsWith("m"));seen=new Set();save();draw();msg("Cleared. Tap “Sync from Gmail” to re-scan.");return}
+  if(confirm("Change the saved Google Client ID?")){cid="";LS.s("ft_cid","");show()}};
 $("sy").onclick=sync;$("flt").onchange=draw;$("per").onchange=$("typ").onchange=draw;
 $("B").onclick=e=>{const b=e.target.closest(".bar");if(b){catF=catF==b.dataset.k?"":b.dataset.k;draw()}};
 
@@ -176,8 +200,10 @@ $("B").onclick=e=>{const b=e.target.closest(".bar");if(b){catF=catF==b.dataset.k
 const BUD=LS.g("ft_bud",{}),PAL=["#2563eb","#dc2626","#16a34a","#f59e0b","#8b5cf6","#06b6d4","#ec4899","#84cc16","#f97316","#64748b"];
 let dayF="",calO=0,mk="debit",mnw="";
 const ym=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
-const _draw=draw;draw=()=>{_draw();extras()};
-$("flt").onchange=$("per").onchange=$("typ").onchange=draw;
+const _draw=draw;draw=()=>{_draw();extras();lh()};
+function lh(){const v=$("per").value;$("cr").hidden=v!="cus";
+  $("LH").textContent=v=="last10"?"Latest 10 transactions · pick a period above to see more":"All transactions for the selected period"}
+$("flt").onchange=$("per").onchange=$("typ").onchange=$("df").onchange=$("dt2").onchange=draw;
 function extras(){
   const sum=a=>a.reduce((x,t)=>x+t.amount,0),now=new Date(),deb=tx.filter(t=>t.kind=="debit");
   const cur=deb.filter(t=>t.ts.startsWith(ym(now))),sp={};
@@ -230,4 +256,3 @@ $("csv").onclick=()=>{const q=s=>'"'+String(s).replace(/"/g,'""')+'"',
   a.download="transactions.csv";a.click()};
 show();
 </script></body></html>
-<!-- GitHub Pages deployment -->
