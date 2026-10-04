@@ -86,6 +86,7 @@ button{cursor:pointer}.p{background:linear-gradient(135deg,var(--a),var(--a2));c
 <input type="date" id="df" style="flex:1 1 45%" title="From date">
 <input type="date" id="dt2" style="flex:1 1 45%" title="To date">
 </div>
+<select id="typ" hidden><option value="debit" selected>Debited</option><option value="credit">Credited</option><option value="all">Both</option></select>
 <div class="typeFilter" aria-label="Transaction type filter">
 <button id="tfDebit" class="on" data-type="debit">↘ Debited</button>
 <button id="tfCredit" data-type="credit">↗ Credited</button>
