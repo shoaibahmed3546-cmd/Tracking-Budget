@@ -280,13 +280,25 @@ async function sync(){
     let ids=[],pt="";
     do{const r=await api(`messages?q=${q}&maxResults=100`+(pt?`&pageToken=${pt}`:""));
       ids.push(...(r.messages||[]).map(m=>m.id));pt=r.nextPageToken}while(pt&&ids.length<1500);
-    const todo=ids.filter(i=>!seen.has(i));let n=0;
+    // Re-read Gmail messages that are already stored as "Transaction"/unknown so that
+    // older records get the same Transaction Info -> Merchant parsing as new records.
+    // User-entered category, payment method, Need/Want and comments are preserved.
+    const todo=ids.filter(i=>!seen.has(i)||tx.some(x=>x.uid==i&&(!x.vendor||/^(transaction|block|unknown)$/i.test(x.vendor))));let n=0;
     for(let i=0;i<todo.length;i+=10){
       await Promise.all(todo.slice(i,i+10).map(async id=>{
-        const t=parse(await api(`messages/${id}?format=full`));seen.add(id);
-        if(t){const k=tx.find(x=>x.vendor==t.vendor&&x.category);
-          t.uid=id;t.category=k?k.category:t.vendor=="ATM Cash Withdrawal"?"Self Cash":t.kind=="credit"?"Income":"";
-          t.need_want="";t.comment="";tx.push(t);n++}}));
+        const fresh=parse(await api(`messages/${id}?format=full`));seen.add(id);
+        if(!fresh)return;
+        const old=tx.find(x=>x.uid==id);
+        if(old){
+          const preserved={category:old.category||"",mode:old.mode||"",need_want:old.need_want||"",comment:old.comment||"",skip:!!old.skip};
+          Object.assign(old,fresh,preserved, {uid:id});
+          n++;
+        }else{
+          const k=tx.find(x=>x.vendor==fresh.vendor&&x.category);
+          fresh.uid=id;fresh.category=k?k.category:fresh.vendor=="ATM Cash Withdrawal"?"Self Cash":fresh.kind=="credit"?"Income":"";
+          fresh.need_want="";fresh.comment="";tx.push(fresh);n++;
+        }
+      }));
       msg(`Reading ${Math.min(i+10,todo.length)} of ${todo.length}…`);setState(`Reading ${Math.min(i+10,todo.length)}/${todo.length}`)}
     save();msg(`Done: ${n} new transaction(s).`);setState("Synced");draw()
   }catch(e){setState("Error");msg("Error: "+(e.message||e))}}
