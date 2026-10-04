@@ -30,6 +30,7 @@ button{cursor:pointer}.p{background:var(--a);color:#fff;border:0}
 .bar.cr i{background:var(--g)}.bar.all i{background:var(--a)}.bar.sel{outline:2px solid var(--a)}
 .hint{color:var(--m);font-size:12px;margin-top:6px}
 [hidden]{display:none!important}
+.card.off .top{opacity:.6}.off .amt{text-decoration:line-through}
 </style></head><body><main>
 <header><h1>💰 My Transactions</h1>
 <select id="flt"><option value="all">All</option><option value="un">To categorize</option></select>
@@ -166,26 +167,27 @@ function inPeriod(t){let v=$("per").value;if(v=="last10")v="d30";const n=new Dat
   if(v=="m1"){const p=new Date(n.getFullYear(),n.getMonth()-1,1);return d.getFullYear()==p.getFullYear()&&d.getMonth()==p.getMonth()}
   return d>=new Date(n-(v=="d30"?30:90)*864e5)}
 function draw(){
-  const sum=a=>a.reduce((x,t)=>x+t.amount,0),P=tx.filter(inPeriod),typ=$("typ").value;
+  const sum=a=>a.reduce((x,t)=>x+(t.skip?0:t.amount),0),P=tx.filter(inPeriod),typ=$("typ").value;
   const d=P.filter(t=>t.kind=="debit"),c=P.filter(t=>t.kind=="credit");
   $("s1").textContent=inr(sum(d));$("s5").textContent=inr(sum(c));
   $("s2").textContent=inr(sum(d.filter(t=>t.need_want=="Need")));$("s3").textContent=inr(sum(d.filter(t=>t.need_want=="Want")));
   $("s4").textContent=tx.filter(t=>!t.category).length;
   const T=P.filter(t=>typ=="all"||t.kind==typ),by={};
-  T.forEach(t=>{const k=t.category||"Uncategorized";by[k]=(by[k]||0)+t.amount});
+  T.forEach(t=>{if(t.skip)return;const k=t.category||"Uncategorized";by[k]=(by[k]||0)+t.amount});
   const tot=sum(T),max=Math.max(0,...Object.values(by)),cls=typ=="credit"?"cr":typ=="all"?"all":"";
   $("B").innerHTML=Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="bar ${cls}${k==catF?" sel":""}" data-k="${esc(k)}">
 <div class="bl"><span>${esc(k)}</span><b>${inr(v)} · ${Math.round(v/tot*100)}%</b></div><i style="width:${v/max*100}%"></i></div>`).join("")
     ||"<p style='color:var(--m)'>No transactions in this period.</p>";
   const un=$("flt").value=="un";
   $("L").innerHTML=[...($("per").value=="last10"?tx.filter(t=>typ=="all"||t.kind==typ):T)].sort((a,b)=>b.ts.localeCompare(a.ts)).filter(t=>(!un||!t.category)&&(!catF||(t.category||"Uncategorized")==catF)&&(!dayF||t.ts.startsWith(dayF))).slice(0,$("per").value=="last10"?10:99999).map(t=>`
-<div class="card"><div class="top"><div><b style="cursor:pointer" onclick="ren('${t.uid}')" title="Tap to edit">${esc(t.vendor)} ✎</b><br><small>${esc(t.ts)}</small>${t.snip?`<details><summary class="hint">Email details</summary><div class="hint">${esc(t.subject)}<br>${esc(t.snip)}</div></details>`:""}</div>
-<b class="${t.kind=="credit"?"cr":"db"}">${t.kind=="credit"?"+":"−"}${inr(t.amount)}</b></div>
+<div class="card${t.skip?" off":""}"><div class="top"><div><b style="cursor:pointer" onclick="ren('${t.uid}')" title="Tap to edit">${esc(t.vendor)} ✎</b><br><small>${esc(t.ts)}</small>${t.snip?`<details><summary class="hint">Email details</summary><div class="hint">${esc(t.subject)}<br>${esc(t.snip)}</div></details>`:""}</div>
+<b class="${t.kind=="credit"?"cr":"db"} amt">${t.kind=="credit"?"+":"−"}${inr(t.amount)}</b></div>
 <div class="r"><select onchange="upd('${t.uid}',{category:this.value})"><option value="">Category…</option>
 ${CATS.map(c=>`<option ${c==t.category?"selected":""}>${esc(c)}</option>`).join("")}</select>
 <div class="tog"><button class="${t.need_want=="Need"?"on":""}" onclick="upd('${t.uid}',{need_want:'Need'})">Need</button>
 <button class="${t.need_want=="Want"?"on":""}" onclick="upd('${t.uid}',{need_want:'Want'})">Want</button></div>
-<input placeholder="Comment" value="${esc(t.comment)}" onchange="upd('${t.uid}',{comment:this.value})"></div></div>`).join("")
+<input placeholder="Comment" value="${esc(t.comment)}" onchange="upd('${t.uid}',{comment:this.value})">
+<div class="tog"><button class="${t.skip?"":"on"}" onclick="upd('${t.uid}',{skip:${!t.skip}})">${t.skip?"○ Not counted · tap to count":"● Counted in totals"}</button></div></div></div>`).join("")
   ||"<p style='color:var(--m)'>Nothing here yet. Tap “Sync from Gmail”.</p>"}
 function show(){$("setup").hidden=!!cid;$("app").hidden=!cid;if(cid)draw()}
 $("savecid").onclick=()=>{const v=$("cid").value.trim();if(v){cid=v;LS.s("ft_cid",v);show()}};
@@ -205,9 +207,9 @@ function lh(){const v=$("per").value;$("cr").hidden=v!="cus";
   $("LH").textContent=v=="last10"?"Latest 10 transactions · pick a period above to see more":"All transactions for the selected period"}
 $("flt").onchange=$("per").onchange=$("typ").onchange=$("df").onchange=$("dt2").onchange=draw;
 function extras(){
-  const sum=a=>a.reduce((x,t)=>x+t.amount,0),now=new Date(),deb=tx.filter(t=>t.kind=="debit");
+  const sum=a=>a.reduce((x,t)=>x+(t.skip?0:t.amount),0),now=new Date(),deb=tx.filter(t=>t.kind=="debit"&&!t.skip);
   const cur=deb.filter(t=>t.ts.startsWith(ym(now))),sp={};
-  cur.forEach(t=>{const k=t.category||"Uncategorized";sp[k]=(sp[k]||0)+t.amount});
+  cur.forEach(t=>{if(t.skip)return;const k=t.category||"Uncategorized";sp[k]=(sp[k]||0)+t.amount});
   const bk=Object.keys(BUD).filter(k=>BUD[k]>0),over=bk.filter(k=>(sp[k]||0)>BUD[k]);
   const prev=deb.filter(t=>t.ts.startsWith(ym(new Date(now.getFullYear(),now.getMonth()-1,1))));
   const top=Object.entries(sp).sort((a,b)=>b[1]-a[1])[0],diff=sum(prev)?Math.round((sum(cur)-sum(prev))/sum(prev)*100):null;
@@ -219,13 +221,13 @@ function extras(){
     $("BS").innerHTML=CATS.filter(c=>c!="Income").map(c=>`<div class="bl" style="margin:6px 0;align-items:center"><span>${esc(c)}</span><input type="number" inputmode="decimal" value="${BUD[c]||""}" placeholder="₹ limit" style="width:120px" data-c="${esc(c)}"></div>`).join("");
   /* donut for selected period + type */
   const typ=$("typ").value,P=tx.filter(inPeriod).filter(t=>typ=="all"||t.kind==typ),by={};
-  P.forEach(t=>{const k=t.category||"Uncategorized";by[k]=(by[k]||0)+t.amount});
+  P.forEach(t=>{if(t.skip)return;const k=t.category||"Uncategorized";by[k]=(by[k]||0)+t.amount});
   const ent=Object.entries(by).sort((a,b)=>b[1]-a[1]),tot=sum(P);let off=0;
   $("DN").innerHTML=tot?`<svg viewBox="0 0 42 42" width="220" height="220"><circle cx="21" cy="21" r="15.9155" fill="none" stroke="var(--l)" stroke-width="6"/>${ent.map(([k,v],i)=>{const p=v/tot*100,s=`<circle cx="21" cy="21" r="15.9155" fill="none" stroke="${PAL[i%10]}" stroke-width="6" stroke-dasharray="${p} ${100-p}" stroke-dashoffset="${25-off}"/>`;off+=p;return s}).join("")}<text x="21" y="22.2" text-anchor="middle" font-size="4" fill="currentColor">${inr(tot)}</text></svg>
 <div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;margin-top:6px">${ent.slice(0,10).map(([k],i)=>`<span><span style="color:${PAL[i%10]}">●</span> ${esc(k)}</span>`).join("")}</div>`:"<p class='hint'>No data for this period.</p>";
   /* 6-month income vs expense */
   const ms=[...Array(6)].map((_,i)=>{const d=new Date(now.getFullYear(),now.getMonth()-5+i,1),k=ym(d);
-    return {l:d.toLocaleString("en",{month:"short"}),d:sum(tx.filter(t=>t.kind=="debit"&&t.ts.startsWith(k))),c:sum(tx.filter(t=>t.kind=="credit"&&t.ts.startsWith(k)))}}),
+    return {l:d.toLocaleString("en",{month:"short"}),d:sum(tx.filter(t=>t.kind=="debit"&&!t.skip&&t.ts.startsWith(k))),c:sum(tx.filter(t=>t.kind=="credit"&&!t.skip&&t.ts.startsWith(k)))}}),
     mx=Math.max(1,...ms.flatMap(m=>[m.d,m.c]));
   $("TR").innerHTML=`<div style="display:flex;gap:6px;margin-top:8px">${ms.map(m=>`<div style="flex:1;text-align:center;font-size:11px"><div style="display:flex;gap:2px;align-items:flex-end;height:100px"><div style="flex:1;background:var(--r);height:${m.d/mx*100}%"></div><div style="flex:1;background:var(--g);height:${m.c/mx*100}%"></div></div>${m.l}<br><span style="color:var(--m)">${m.d?inr(m.d).replace(/\.\d+/,""):""}</span></div>`).join("")}</div><div class="hint">Red = debited · Green = credited</div>`;
   /* calendar of daily spend */
@@ -251,7 +253,7 @@ $("msv").onclick=()=>{const a=parseFloat($("ma").value);if(!(a>0))return msg("En
   save();$("ma").value=$("mv").value=$("mn").value="";$("addf").hidden=true;msg("Added.");draw()};
 /* CSV export of the selected period */
 $("csv").onclick=()=>{const q=s=>'"'+String(s).replace(/"/g,'""')+'"',
-  rows=[["Date","Vendor","Type","Amount","Category","Need/Want","Comment"],...tx.filter(inPeriod).map(t=>[t.ts,t.vendor,t.kind,t.amount,t.category,t.need_want,t.comment])],
+  rows=[["Date","Vendor","Type","Amount","Category","Need/Want","Comment","Counted"],...tx.filter(inPeriod).map(t=>[t.ts,t.vendor,t.kind,t.amount,t.category,t.need_want,t.comment,t.skip?"No":"Yes"])],
   a=document.createElement("a");a.href=URL.createObjectURL(new Blob([rows.map(r=>r.map(q).join(",")).join("\n")],{type:"text/csv"}));
   a.download="transactions.csv";a.click()};
 show();
